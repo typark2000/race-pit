@@ -6,12 +6,15 @@ let trackPath = null;
 let trackPathLength = 0;
 let pitLanePath = null;
 let pitLanePathLength = 0;
+let previousCarsById = new Map();
 
 const els = {
   startRaceButton: document.getElementById('startRaceButton'),
   tickButton: document.getElementById('tickButton'),
   lapLabel: document.getElementById('lapLabel'),
   phaseLabel: document.getElementById('phaseLabel'),
+  raceInsight: document.getElementById('raceInsight'),
+  raceHud: document.getElementById('raceHud'),
   carsLayer: document.getElementById('carsLayer'),
   orderBoard: document.getElementById('orderBoard'),
   strategyGrid: document.getElementById('strategyGrid'),
@@ -71,11 +74,42 @@ function getCarRenderPoint(car) {
   return samplePathPoint(trackPath, trackPathLength, car.progress, laneOffsetsByCar[car.id] ?? 0);
 }
 
+function getLeaderScore(car) {
+  return (car.lap - 1) + car.progress;
+}
+
+function formatGap(car, leader) {
+  const gap = Math.max(0, (getLeaderScore(leader) - getLeaderScore(car)) * 60);
+  return gap < 0.1 ? 'Leader' : `+${gap.toFixed(1)}s`;
+}
+
+function getPitLossEstimate(car) {
+  const base = 13.5;
+  const wearBonus = car.tyre.wear >= 85 ? 1.4 : car.tyre.wear >= 70 ? 0.6 : 0;
+  return `${(base - wearBonus).toFixed(1)}s`;
+}
+
+function getUndercutHint(car, rival) {
+  if (!rival) return '상대 데이터 없음';
+  const wearDiff = car.tyre.wear - rival.tyre.wear;
+  if (car.pitIntent) return '이번 랩 언더컷 시도 중';
+  if (wearDiff >= 12) return '지금 들어가면 언더컷 각';
+  if (wearDiff <= -10) return '상대 언더컷 방어 필요';
+  return '아직 스테이 아웃 가능';
+}
+
 function renderTrack() {
+  const leaderId = raceState.cars[0]?.id;
   els.carsLayer.innerHTML = raceState.cars.map((car) => {
     const point = getCarRenderPoint(car);
+    const previous = previousCarsById.get(car.id);
+    const hasAdvanced = previous && ((car.lap > previous.lap) || (car.progress > previous.progress));
+    const overtakingGlow = car.latestStrategyNote === 'Overtake made';
     return `
-      <g class="car-dot ${car.teamColor} ${car.pitState === 'pitlane' ? 'in-pit' : ''}" transform="translate(${point.x} ${point.y}) rotate(${point.angle})">
+      <g class="car-trail ${hasAdvanced ? 'active' : ''}" transform="translate(${point.x} ${point.y}) rotate(${point.angle})">
+        <ellipse class="trail-core ${car.teamColor}" cx="-26" cy="0" rx="24" ry="10"></ellipse>
+      </g>
+      <g class="car-dot ${car.teamColor} ${car.pitState === 'pitlane' ? 'in-pit' : ''} ${leaderId === car.id ? 'leader-car' : ''} ${overtakingGlow ? 'overtake-pop' : ''}" transform="translate(${point.x} ${point.y}) rotate(${point.angle})">
         <rect class="car-body" x="-24" y="-14" width="48" height="28" rx="14" ry="14"></rect>
         <rect class="wheel wheel-front-left" x="-22" y="-17" width="8" height="8"></rect>
         <rect class="wheel wheel-front-right" x="14" y="-17" width="8" height="8"></rect>
@@ -87,12 +121,41 @@ function renderTrack() {
   }).join('');
 }
 
+function renderRaceHud() {
+  const leader = raceState.cars[0];
+  const playerCars = raceState.cars.filter((car) => car.controller === 'player');
+  if (!leader) return;
+  els.raceHud.innerHTML = playerCars.map((car) => {
+    const rival = raceState.cars.find((item) => item.controller === 'ai' && item.slot === car.slot) || raceState.cars.find((item) => item.controller === 'ai');
+    return `
+      <article class="hud-card">
+        <strong>${car.driverName}</strong>
+        <div class="hud-grid small">
+          <span>Gap ${formatGap(car, leader)}</span>
+          <span>Pit loss ${getPitLossEstimate(car)}</span>
+          <span>${getUndercutHint(car, rival)}</span>
+        </div>
+      </article>
+    `;
+  }).join('');
+
+  const headline = raceState.cars.find((car) => car.latestStrategyNote === 'Overtake made')
+    ? '추월 발생. 지금 페이스 결정을 다시 봐야 해.'
+    : playerCars.some((car) => car.tyre.wear >= 85)
+      ? '타이어가 무너진다. 이번 랩 피트 판단 구간.'
+      : '지금은 갭과 타이어를 같이 봐야 하는 구간.';
+
+  els.raceInsight.textContent = headline;
+}
+
 function renderOrderBoard() {
+  const leader = raceState.cars[0];
   els.orderBoard.innerHTML = raceState.cars.map((car, index) => `
     <article class="order-row ${index < 2 ? 'front-runner' : ''}">
       <strong>${index + 1}. ${car.driverName}</strong>
       <div class="order-meta small">
         <span>${car.teamColor}</span>
+        <span>${leader ? formatGap(car, leader) : '-'}</span>
         <span>Lap ${Math.min(car.lap, raceState.lapCount)} / ${raceState.lapCount}</span>
         <span class="tyre-badge ${tyreClass(car.tyre.compound)}">${car.tyre.compound}</span>
         <span>Wear ${Math.round(car.tyre.wear)}%</span>
@@ -190,17 +253,24 @@ function renderResult() {
   `;
 }
 
+function snapshotCars() {
+  previousCarsById = new Map(raceState.cars.map((car) => [car.id, { lap: car.lap, progress: car.progress }]));
+}
+
 function render() {
   renderHeader();
+  renderRaceHud();
   renderTrack();
   renderOrderBoard();
   renderStrategy();
   renderResult();
+  snapshotCars();
 }
 
 function startRace() {
   if (raceTimer) window.clearInterval(raceTimer);
   raceState = createRaceState();
+  previousCarsById = new Map();
   render();
   raceTimer = window.setInterval(() => {
     raceState = advanceRaceTick(raceState);

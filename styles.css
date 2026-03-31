@@ -169,3 +169,49 @@ h1 { font-size: clamp(2rem, 4vw, 3rem); }
   stroke: rgba(34,211,238,.8);
   stroke-width: 3;
 }
+
+.track-insight {
+  margin-top: 14px;
+  color: var(--muted);
+}
+.race-hud {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 10px;
+  margin-top: 12px;
+}
+.hud-card {
+  border: 1px solid var(--line);
+  border-radius: 16px;
+  padding: 12px;
+  background: rgba(255,255,255,.04);
+}
+.hud-grid {
+  display: grid;
+  gap: 4px;
+  margin-top: 6px;
+}
+.car-trail {
+  opacity: .55;
+  transition: opacity .18s ease;
+}
+.car-trail.active {
+  opacity: .9;
+}
+.trail-core {
+  fill-opacity: .22;
+}
+.trail-core.green { fill: var(--green); }
+.trail-core.orange { fill: var(--orange); }
+.trail-core.red { fill: var(--red); }
+.trail-core.navy { fill: var(--navy); }
+.leader-car .car-body {
+  stroke-width: 3;
+  stroke: rgba(255,255,255,.98);
+}
+.overtake-pop .car-body {
+  filter: brightness(1.18);
+}
+@media (max-width: 860px) {
+  .race-hud { grid-template-columns: 1fr; }
+}
