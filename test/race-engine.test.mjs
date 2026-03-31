@@ -68,11 +68,14 @@ test('pit command flow separates next tyre and pit request', () => {
   assert.equal(state.cars.find((car) => car.id === 'green-a').pitIntent, false);
 });
 
-test('applyPitLogic moves car into servicing at pit window', () => {
+test('applyPitLogic sends car through pit lane and prevents teleport return', () => {
   let state = requestPitStop(createRaceState(), 'green-a');
   state.cars[0].progress = 0.9;
-  const next = applyPitLogic(state);
-  assert.equal(next.cars[0].pitState, 'servicing');
+  const entered = applyPitLogic(state);
+  assert.equal(entered.cars[0].pitState, 'pitlane');
+  const mid = applyPitLogic({ ...entered, cars: entered.cars.map((car, i) => i === 0 ? { ...car, pitElapsedMs: car.pitTotalMs / 2, pitRemainingMs: car.pitTotalMs / 2 } : car) });
+  assert.equal(mid.cars[0].pitState, 'pitlane');
+  assert.notEqual(mid.cars[0].progress, 0.9);
 });
 
 test('resolveOvertakes swaps faster car in overtaking zone', () => {

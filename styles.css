@@ -102,9 +102,10 @@ h1 { font-size: clamp(2rem, 4vw, 3rem); }
 }
 .pit-lane {
   fill: none;
-  stroke: rgba(255,255,255,.28);
-  stroke-width: 18;
+  stroke: rgba(255,255,255,.36);
+  stroke-width: 24;
   stroke-linecap: round;
+  stroke-linejoin: round;
 }
 .start-line {
   stroke: white;
@@ -115,7 +116,10 @@ h1 { font-size: clamp(2rem, 4vw, 3rem); }
   fill: rgba(255,255,255,.75);
 }
 .car-dot {
-  filter: drop-shadow(0 0 8px rgba(255,255,255,.18));
+  filter: drop-shadow(0 0 10px rgba(255,255,255,.22));
+}
+.car-dot.in-pit {
+  filter: drop-shadow(0 0 14px rgba(139,92,246,.42));
 }
 .car-body {
   stroke: rgba(255,255,255,.82);

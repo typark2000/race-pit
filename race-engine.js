@@ -19,6 +19,7 @@ export const TRACK_ALPHA = {
   laps: 8,
   lengthScale: 1,
   pitLossMs: 13500,
+  pitServiceFraction: 0.58,
   overtakeZones: [0.12, 0.48, 0.76],
   pitWindows: [0.86, 1.0],
   pitExitAt: 0.08
@@ -53,6 +54,12 @@ export function createCarState(car, index) {
     pitIntent: false,
     pitState: 'none',
     pitRemainingMs: 0,
+    pitTotalMs: 0,
+    pitElapsedMs: 0,
+    pitVisualProgress: 0,
+    pitStartProgress: null,
+    pitStartLap: null,
+    pitTyreChanged: false,
     basePace: car.basePace,
     dirtyAirPenalty: 0,
     retired: false,
@@ -104,6 +111,7 @@ export function computeEffectivePace(car, weather) {
 }
 
 export function applyTyreWear(car, weather) {
+  if (car.pitState === 'pitlane') return car;
   const tyrePreset = TYRE_PRESETS[car.tyre.compound];
   const wearFactor = PACE_PRESETS[car.paceMode].wear;
   const weatherMultiplier = weather === 'dry' && car.tyre.compound === 'wet' ? 1.5 : 1;
@@ -122,7 +130,7 @@ export function applyTyreWear(car, weather) {
 export function applyTraffic(cars) {
   const sorted = [...cars].sort((a, b) => (b.lap + b.progress) - (a.lap + a.progress));
   return sorted.map((car, index) => {
-    if (index === 0) return { ...car, dirtyAirPenalty: 0 };
+    if (index === 0 || car.pitState === 'pitlane') return { ...car, dirtyAirPenalty: 0 };
     const ahead = sorted[index - 1];
     const delta = (ahead.lap + ahead.progress) - (car.lap + car.progress);
     return { ...car, dirtyAirPenalty: delta < 0.02 ? 0.06 : 0 };
@@ -202,26 +210,72 @@ export function applyAiStrategy(state) {
   };
 }
 
+function getPitTargetProgress(car, track) {
+  return track.pitExitAt <= car.progress ? track.pitExitAt + 1 : track.pitExitAt;
+}
+
+function interpolatePitProgress(car, track, fraction) {
+  const startProgress = car.pitStartProgress ?? car.progress;
+  const startLap = car.pitStartLap ?? car.lap;
+  const target = getPitTargetProgress(car, track);
+  const span = target - startProgress;
+  const combined = startProgress + (span * fraction);
+  const lapOffset = Math.floor(combined);
+  return {
+    progress: combined % 1,
+    lap: startLap + lapOffset
+  };
+}
+
 export function applyPitLogic(state) {
   const sameTeamPitBusy = new Map();
   const cars = state.cars.map((car) => {
     if (car.retired || car.finishTimeMs != null) return car;
 
-    if (car.pitState === 'servicing') {
-      const remaining = Math.max(0, car.pitRemainingMs - TICK_MS);
-      if (remaining === 0) {
-        return {
-          ...car,
-          pitState: 'none',
-          pitRemainingMs: 0,
+    if (car.pitState === 'pitlane') {
+      const nextElapsed = Math.min(car.pitTotalMs, car.pitElapsedMs + TICK_MS);
+      const nextRemaining = Math.max(0, car.pitTotalMs - nextElapsed);
+      const visualFraction = car.pitTotalMs ? nextElapsed / car.pitTotalMs : 1;
+      const interpolated = interpolatePitProgress(car, state.track, visualFraction);
+      const shouldChangeTyres = !car.pitTyreChanged && nextElapsed >= (car.pitTotalMs * state.track.pitServiceFraction);
+
+      let nextCar = {
+        ...car,
+        pitElapsedMs: nextElapsed,
+        pitRemainingMs: nextRemaining,
+        pitVisualProgress: visualFraction,
+        progress: interpolated.progress,
+        lap: interpolated.lap,
+        latestStrategyNote: nextRemaining > 0 ? 'Running through pit lane' : `Rejoined on ${car.nextTyreCompound}`
+      };
+
+      if (shouldChangeTyres) {
+        nextCar = {
+          ...nextCar,
+          pitTyreChanged: true,
           tyre: createTyreState(car.nextTyreCompound || car.tyre.compound),
+          latestStrategyNote: `Tyres fitted: ${car.nextTyreCompound}`
+        };
+      }
+
+      if (nextElapsed >= car.pitTotalMs) {
+        return {
+          ...nextCar,
+          pitState: 'none',
           pitIntent: false,
-          progress: state.track.pitExitAt,
-          lastPitLap: car.lap,
+          pitRemainingMs: 0,
+          pitTotalMs: 0,
+          pitElapsedMs: 0,
+          pitVisualProgress: 0,
+          pitStartProgress: null,
+          pitStartLap: null,
+          pitTyreChanged: false,
+          lastPitLap: nextCar.lap,
           latestStrategyNote: `Rejoined on ${car.nextTyreCompound}`
         };
       }
-      return { ...car, pitRemainingMs: remaining };
+
+      return nextCar;
     }
 
     if (car.pitIntent && car.pitState === 'none' && car.progress >= state.track.pitWindows[0] && car.progress <= state.track.pitWindows[1]) {
@@ -229,9 +283,15 @@ export function applyPitLogic(state) {
       sameTeamPitBusy.set(car.teamColor, true);
       return {
         ...car,
-        pitState: 'servicing',
+        pitState: 'pitlane',
+        pitTotalMs: state.track.pitLossMs + extraDelay,
         pitRemainingMs: state.track.pitLossMs + extraDelay,
-        latestStrategyNote: extraDelay ? 'Double stack delay' : 'Into the pits'
+        pitElapsedMs: 0,
+        pitVisualProgress: 0,
+        pitStartProgress: car.progress,
+        pitStartLap: car.lap,
+        pitTyreChanged: false,
+        latestStrategyNote: extraDelay ? 'Double stack in pit lane' : 'Into the pits'
       };
     }
 
@@ -246,6 +306,7 @@ export function resolveOvertakes(state) {
   for (let i = 1; i < cars.length; i += 1) {
     const behind = cars[i];
     const ahead = cars[i - 1];
+    if (behind.pitState === 'pitlane' || ahead.pitState === 'pitlane') continue;
     const zoneHit = state.track.overtakeZones.some((zone) => behind.progress >= zone && behind.progress < zone + 0.03);
     if (!zoneHit) continue;
     const paceDiff = computeEffectivePace(behind, state.currentWeather) - computeEffectivePace(ahead, state.currentWeather);
@@ -257,8 +318,8 @@ export function resolveOvertakes(state) {
   return { ...state, cars };
 }
 
-export function updateCarProgress(car, weather, elapsedMs) {
-  if (car.retired || car.finishTimeMs != null || car.pitState === 'servicing') return car;
+export function updateCarProgress(car, weather, elapsedMs, lapCount = TRACK_ALPHA.laps) {
+  if (car.retired || car.finishTimeMs != null || car.pitState === 'pitlane') return car;
   const effectivePace = computeEffectivePace(car, weather);
   const delta = (effectivePace * TICK_MS) / 60_000;
   let progress = car.progress + delta;
@@ -270,7 +331,7 @@ export function updateCarProgress(car, weather, elapsedMs) {
     lap += 1;
   }
 
-  if (lap > TRACK_ALPHA.laps && finishTimeMs == null) {
+  if (lap > lapCount && finishTimeMs == null) {
     finishTimeMs = elapsedMs;
   }
 
@@ -324,7 +385,7 @@ export function advanceRaceTick(state) {
     ...next,
     cars: applyTraffic(next.cars)
       .map((car) => applyTyreWear(car, next.currentWeather))
-      .map((car) => updateCarProgress(car, next.currentWeather, next.elapsedMs))
+      .map((car) => updateCarProgress(car, next.currentWeather, next.elapsedMs, next.lapCount))
   };
   next = applyPitLogic(next);
   next = resolveOvertakes(next);

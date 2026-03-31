@@ -4,6 +4,8 @@ let raceState = createRaceState();
 let raceTimer = null;
 let trackPath = null;
 let trackPathLength = 0;
+let pitLanePath = null;
+let pitLanePathLength = 0;
 
 const els = {
   startRaceButton: document.getElementById('startRaceButton'),
@@ -21,6 +23,8 @@ const els = {
 function initTrackGeometry() {
   trackPath = document.getElementById('raceTrackPath');
   trackPathLength = trackPath?.getTotalLength?.() || 0;
+  pitLanePath = document.getElementById('pitLanePath');
+  pitLanePathLength = pitLanePath?.getTotalLength?.() || 0;
 }
 
 function tyreClass(compound) {
@@ -32,16 +36,14 @@ function clampProgress(progress) {
   return normalized < 0 ? normalized + 1 : normalized;
 }
 
-function progressToTrackPoint(progress, laneOffset = 0) {
-  if (!trackPath || !trackPathLength) {
+function samplePathPoint(path, pathLength, normalizedProgress, laneOffset = 0) {
+  if (!path || !pathLength) {
     return { x: 500, y: 310, angle: 0 };
   }
-
-  const normalized = clampProgress(progress);
-  const distance = normalized * trackPathLength;
-  const point = trackPath.getPointAtLength(distance);
-  const lookAhead = trackPath.getPointAtLength(Math.min(trackPathLength, distance + 3));
-  const lookBehind = trackPath.getPointAtLength(Math.max(0, distance - 3));
+  const distance = clampProgress(normalizedProgress) * pathLength;
+  const point = path.getPointAtLength(distance);
+  const lookAhead = path.getPointAtLength(Math.min(pathLength, distance + 3));
+  const lookBehind = path.getPointAtLength(Math.max(0, distance - 3));
   const dx = lookAhead.x - lookBehind.x;
   const dy = lookAhead.y - lookBehind.y;
   const angle = Math.atan2(dy, dx) * (180 / Math.PI);
@@ -56,24 +58,30 @@ function progressToTrackPoint(progress, laneOffset = 0) {
   };
 }
 
-function renderTrack() {
+function getCarRenderPoint(car) {
   const laneOffsetsByCar = {
     'green-a': -6,
     'orange-a': 6,
     'green-b': -6,
     'orange-b': 6
   };
+  if (car.pitState === 'pitlane') {
+    return samplePathPoint(pitLanePath, pitLanePathLength, car.pitVisualProgress, 0);
+  }
+  return samplePathPoint(trackPath, trackPathLength, car.progress, laneOffsetsByCar[car.id] ?? 0);
+}
 
+function renderTrack() {
   els.carsLayer.innerHTML = raceState.cars.map((car) => {
-    const point = progressToTrackPoint(car.progress, laneOffsetsByCar[car.id] ?? 0);
+    const point = getCarRenderPoint(car);
     return `
-      <g class="car-dot ${car.teamColor}" transform="translate(${point.x} ${point.y}) rotate(${point.angle})">
-        <rect class="car-body" x="-12" y="-7" width="24" height="14" rx="7" ry="7"></rect>
-        <rect class="wheel wheel-front-left" x="-11" y="-8.5" width="4" height="4"></rect>
-        <rect class="wheel wheel-front-right" x="7" y="-8.5" width="4" height="4"></rect>
-        <rect class="wheel wheel-rear-left" x="-11" y="4.5" width="4" height="4"></rect>
-        <rect class="wheel wheel-rear-right" x="7" y="4.5" width="4" height="4"></rect>
-        <rect class="cockpit" x="-3" y="-4" width="8" height="8" rx="3"></rect>
+      <g class="car-dot ${car.teamColor} ${car.pitState === 'pitlane' ? 'in-pit' : ''}" transform="translate(${point.x} ${point.y}) rotate(${point.angle})">
+        <rect class="car-body" x="-24" y="-14" width="48" height="28" rx="14" ry="14"></rect>
+        <rect class="wheel wheel-front-left" x="-22" y="-17" width="8" height="8"></rect>
+        <rect class="wheel wheel-front-right" x="14" y="-17" width="8" height="8"></rect>
+        <rect class="wheel wheel-rear-left" x="-22" y="9" width="8" height="8"></rect>
+        <rect class="wheel wheel-rear-right" x="14" y="9" width="8" height="8"></rect>
+        <rect class="cockpit" x="-6" y="-8" width="16" height="16" rx="5"></rect>
       </g>
     `;
   }).join('');
