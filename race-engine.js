@@ -19,9 +19,9 @@ export const TRACK_ALPHA = {
   laps: 8,
   lengthScale: 1,
   pitLossMs: 13500,
-  pitEntryAt: 0.88,
-  pitExitAt: 0.08,
-  overtakeZones: [0.12, 0.48, 0.76]
+  overtakeZones: [0.12, 0.48, 0.76],
+  pitWindows: [0.86, 1.0],
+  pitExitAt: 0.08
 };
 
 export const DEFAULT_GRID = [
@@ -49,14 +49,17 @@ export function createCarState(car, index) {
     gapMs: index * 500,
     tyre: createTyreState(car.tyreCompound),
     paceMode: 'normal',
-    pitIntent: null,
+    nextTyreCompound: car.tyreCompound,
+    pitIntent: false,
     pitState: 'none',
     pitRemainingMs: 0,
     basePace: car.basePace,
     dirtyAirPenalty: 0,
     retired: false,
     finishTimeMs: null,
-    points: 0
+    points: 0,
+    lastPitLap: 0,
+    latestStrategyNote: ''
   };
 }
 
@@ -126,13 +129,76 @@ export function applyTraffic(cars) {
   });
 }
 
-export function requestPitStop(state, carId, nextTyreCompound) {
+export function chooseRecommendedTyre(car) {
+  if (car.tyre.wear > 84) return 'hard';
+  if (car.tyre.compound === 'hard') return 'medium';
+  return 'hard';
+}
+
+export function setNextTyreCompound(state, carId, nextTyreCompound) {
+  return {
+    ...state,
+    cars: state.cars.map((car) => car.id === carId ? { ...car, nextTyreCompound } : car)
+  };
+}
+
+export function requestPitStop(state, carId) {
   return {
     ...state,
     cars: state.cars.map((car) => car.id === carId ? {
       ...car,
-      pitIntent: { nextTyreCompound, requestTick: state.tick }
+      pitIntent: true,
+      latestStrategyNote: `Pit requested for ${car.nextTyreCompound}`
     } : car)
+  };
+}
+
+export function cancelPitStop(state, carId) {
+  return {
+    ...state,
+    cars: state.cars.map((car) => car.id === carId ? {
+      ...car,
+      pitIntent: false,
+      latestStrategyNote: 'Pit request cleared'
+    } : car)
+  };
+}
+
+export function shouldAiPit(car, state) {
+  if (car.controller !== 'ai' || car.pitState !== 'none' || car.finishTimeMs != null) return false;
+  if (car.pitIntent) return true;
+  const lateRace = car.lap >= state.lapCount - 1;
+  if (lateRace) return false;
+  if (car.tyre.wear >= 82) return true;
+  if (car.tyre.wear >= 68 && car.tyre.compound === 'soft') return true;
+  return false;
+}
+
+export function chooseAiPace(car, state) {
+  if (car.pitState !== 'none') return car.paceMode;
+  const finalLap = car.lap >= state.lapCount;
+  if (finalLap && car.tyre.wear < 90) return 'push';
+  if (car.tyre.wear >= 86) return 'conserve';
+  if (car.dirtyAirPenalty > 0 && car.tyre.wear < 72) return 'push';
+  return 'normal';
+}
+
+export function applyAiStrategy(state) {
+  return {
+    ...state,
+    cars: state.cars.map((car) => {
+      if (car.controller !== 'ai') return car;
+      const paceMode = chooseAiPace(car, state);
+      const pitIntent = shouldAiPit(car, state);
+      const nextTyreCompound = pitIntent ? chooseRecommendedTyre(car) : car.nextTyreCompound;
+      return {
+        ...car,
+        paceMode,
+        pitIntent,
+        nextTyreCompound,
+        latestStrategyNote: pitIntent ? `AI boxing for ${nextTyreCompound}` : `AI running ${paceMode}`
+      };
+    })
   };
 }
 
@@ -148,21 +214,24 @@ export function applyPitLogic(state) {
           ...car,
           pitState: 'none',
           pitRemainingMs: 0,
-          tyre: createTyreState(car.pitIntent?.nextTyreCompound || car.tyre.compound),
-          pitIntent: null,
-          progress: state.track.pitExitAt
+          tyre: createTyreState(car.nextTyreCompound || car.tyre.compound),
+          pitIntent: false,
+          progress: state.track.pitExitAt,
+          lastPitLap: car.lap,
+          latestStrategyNote: `Rejoined on ${car.nextTyreCompound}`
         };
       }
       return { ...car, pitRemainingMs: remaining };
     }
 
-    if (car.pitIntent && car.pitState === 'none' && car.progress >= state.track.pitEntryAt) {
+    if (car.pitIntent && car.pitState === 'none' && car.progress >= state.track.pitWindows[0] && car.progress <= state.track.pitWindows[1]) {
       const extraDelay = sameTeamPitBusy.get(car.teamColor) ? 2500 : 0;
       sameTeamPitBusy.set(car.teamColor, true);
       return {
         ...car,
         pitState: 'servicing',
-        pitRemainingMs: state.track.pitLossMs + extraDelay
+        pitRemainingMs: state.track.pitLossMs + extraDelay,
+        latestStrategyNote: extraDelay ? 'Double stack delay' : 'Into the pits'
       };
     }
 
@@ -181,14 +250,14 @@ export function resolveOvertakes(state) {
     if (!zoneHit) continue;
     const paceDiff = computeEffectivePace(behind, state.currentWeather) - computeEffectivePace(ahead, state.currentWeather);
     if (paceDiff > 0.035) {
-      cars[i - 1] = behind;
+      cars[i - 1] = { ...behind, latestStrategyNote: 'Overtake made' };
       cars[i] = ahead;
     }
   }
   return { ...state, cars };
 }
 
-export function updateCarProgress(car, weather) {
+export function updateCarProgress(car, weather, elapsedMs) {
   if (car.retired || car.finishTimeMs != null || car.pitState === 'servicing') return car;
   const effectivePace = computeEffectivePace(car, weather);
   const delta = (effectivePace * TICK_MS) / 60_000;
@@ -199,6 +268,10 @@ export function updateCarProgress(car, weather) {
   while (progress >= 1) {
     progress -= 1;
     lap += 1;
+  }
+
+  if (lap > TRACK_ALPHA.laps && finishTimeMs == null) {
+    finishTimeMs = elapsedMs;
   }
 
   return {
@@ -212,9 +285,12 @@ export function updateCarProgress(car, weather) {
 export function computeOrder(cars) {
   return [...cars]
     .sort((a, b) => {
-      const aScore = a.finishTimeMs != null ? Number.MAX_SAFE_INTEGER - a.finishTimeMs : (a.lap + a.progress) * 100000;
-      const bScore = b.finishTimeMs != null ? Number.MAX_SAFE_INTEGER - b.finishTimeMs : (b.lap + b.progress) * 100000;
-      return bScore - aScore;
+      const aDone = a.finishTimeMs != null;
+      const bDone = b.finishTimeMs != null;
+      if (aDone && bDone) return a.finishTimeMs - b.finishTimeMs;
+      if (aDone) return -1;
+      if (bDone) return 1;
+      return (b.lap + b.progress) - (a.lap + a.progress);
     })
     .map((car, index) => ({ ...car, positionIndex: index }));
 }
@@ -228,7 +304,10 @@ export function computeRaceResult(state) {
     return acc;
   }, {});
   const winner = Object.entries(totals).sort((a, b) => b[1] - a[1])[0]?.[0] || null;
-  return { winner, totals, order: cars.map((car) => car.id) };
+  const winningMove = [...cars]
+    .sort((a, b) => b.tyre.wear - a.tyre.wear)
+    .map((car) => `${car.driverName}: ${car.latestStrategyNote || 'steady run'}`)[0] || 'No standout move';
+  return { winner, totals, order: cars.map((car) => car.id), summary: cars, winningMove };
 }
 
 export function advanceRaceTick(state) {
@@ -240,12 +319,18 @@ export function advanceRaceTick(state) {
     elapsedMs: state.elapsedMs + TICK_MS
   };
 
-  next = { ...next, cars: applyTraffic(next.cars).map((car) => applyTyreWear(car, next.currentWeather)).map((car) => updateCarProgress(car, next.currentWeather)) };
+  next = applyAiStrategy(next);
+  next = {
+    ...next,
+    cars: applyTraffic(next.cars)
+      .map((car) => applyTyreWear(car, next.currentWeather))
+      .map((car) => updateCarProgress(car, next.currentWeather, next.elapsedMs))
+  };
   next = applyPitLogic(next);
   next = resolveOvertakes(next);
   next = { ...next, cars: computeOrder(next.cars) };
 
-  const finishedCars = next.cars.filter((car) => car.lap > next.lapCount);
+  const finishedCars = next.cars.filter((car) => car.finishTimeMs != null);
   if (finishedCars.length === next.cars.length) {
     return {
       ...next,

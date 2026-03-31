@@ -2,24 +2,25 @@ import test from 'node:test';
 import assert from 'node:assert/strict';
 import {
   TICK_MS,
-  TYRE_PRESETS,
-  PACE_PRESETS,
   TRACK_ALPHA,
   DEFAULT_GRID,
-  createTyreState,
   createCarState,
   createRaceState,
   getTyreGripFactor,
   getWeatherFactor,
-  computeEffectivePace,
   applyTyreWear,
   applyTraffic,
+  setNextTyreCompound,
   requestPitStop,
+  cancelPitStop,
   applyPitLogic,
   resolveOvertakes,
   computeOrder,
   computeRaceResult,
-  advanceRaceTick
+  advanceRaceTick,
+  shouldAiPit,
+  chooseAiPace,
+  applyAiStrategy
 } from '../race-engine.js';
 
 test('createRaceState builds a racing state with four cars', () => {
@@ -57,14 +58,18 @@ test('applyTraffic adds dirty air penalty to close follower', () => {
   assert.equal(result[1].dirtyAirPenalty > 0, true);
 });
 
-test('requestPitStop sets pit intent', () => {
-  const state = createRaceState();
-  const next = requestPitStop(state, 'green-a', 'soft');
-  assert.equal(next.cars.find((car) => car.id === 'green-a').pitIntent.nextTyreCompound, 'soft');
+test('pit command flow separates next tyre and pit request', () => {
+  let state = createRaceState();
+  state = setNextTyreCompound(state, 'green-a', 'soft');
+  assert.equal(state.cars.find((car) => car.id === 'green-a').nextTyreCompound, 'soft');
+  state = requestPitStop(state, 'green-a');
+  assert.equal(state.cars.find((car) => car.id === 'green-a').pitIntent, true);
+  state = cancelPitStop(state, 'green-a');
+  assert.equal(state.cars.find((car) => car.id === 'green-a').pitIntent, false);
 });
 
-test('applyPitLogic moves car into servicing at pit entry', () => {
-  const state = requestPitStop(createRaceState(), 'green-a', 'soft');
+test('applyPitLogic moves car into servicing at pit window', () => {
+  let state = requestPitStop(createRaceState(), 'green-a');
   state.cars[0].progress = 0.9;
   const next = applyPitLogic(state);
   assert.equal(next.cars[0].pitState, 'servicing');
@@ -81,12 +86,27 @@ test('resolveOvertakes swaps faster car in overtaking zone', () => {
   assert.equal(next.cars[0].id, 'behind');
 });
 
-test('computeRaceResult applies points table', () => {
+test('AI decides pit and pace from wear/conditions', () => {
+  const state = createRaceState();
+  const aiCar = { ...state.cars.find((car) => car.controller === 'ai'), tyre: { compound: 'soft', wear: 85, grip: 1 }, pitState: 'none', pitIntent: false, dirtyAirPenalty: 0 };
+  assert.equal(shouldAiPit(aiCar, state), true);
+  assert.equal(chooseAiPace({ ...aiCar, tyre: { ...aiCar.tyre, wear: 90 } }, state), 'conserve');
+});
+
+test('applyAiStrategy updates AI car decisions', () => {
+  const state = createRaceState();
+  state.cars = state.cars.map((car) => car.controller === 'ai' ? { ...car, tyre: { ...car.tyre, wear: 85, grip: 1 } } : car);
+  const next = applyAiStrategy(state);
+  assert.equal(next.cars.some((car) => car.controller === 'ai' && car.pitIntent), true);
+});
+
+test('computeRaceResult applies points table and returns winning move', () => {
   const state = createRaceState();
   state.cars = computeOrder(state.cars);
   const result = computeRaceResult(state);
   assert.equal(result.totals.green, 17);
   assert.equal(result.totals.orange, 11);
+  assert.ok(result.winningMove.length > 0);
 });
 
 test('advanceRaceTick advances time and tick', () => {

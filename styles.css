@@ -115,3 +115,7 @@ h1 { font-size: clamp(2rem, 4vw, 3rem); }
 @media (max-width: 860px) {
   .race-layout { grid-template-columns: 1fr; }
 }
+
+.note { margin: 4px 0 0; }
+.order-row.front-runner { background: rgba(255,255,255,.07); }
+.strategy-card.pit-queued { outline: 2px solid rgba(139,92,246,.9); }
