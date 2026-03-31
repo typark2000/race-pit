@@ -31,7 +31,23 @@
             </div>
           </div>
           <div class="track-stage">
-            <div class="track-loop"></div>
+            <svg class="track-svg" viewBox="0 0 1000 620" preserveAspectRatio="xMidYMid meet" aria-hidden="true">
+              <defs>
+                <linearGradient id="trackGlow" x1="0%" x2="100%" y1="0%" y2="100%">
+                  <stop offset="0%" stop-color="#60a5fa" stop-opacity="0.7" />
+                  <stop offset="50%" stop-color="#8b5cf6" stop-opacity="0.9" />
+                  <stop offset="100%" stop-color="#22d3ee" stop-opacity="0.7" />
+                </linearGradient>
+              </defs>
+              <path class="track-shadow" d="M 162 310 C 168 192, 302 92, 440 110 C 536 122, 596 172, 650 164 C 736 152, 866 198, 874 304 C 882 414, 776 504, 644 510 C 534 514, 492 446, 418 450 C 330 454, 248 536, 164 494 C 92 458, 98 378, 162 310 Z" />
+              <path id="raceTrackPath" class="track-outline" d="M 162 310 C 168 192, 302 92, 440 110 C 536 122, 596 172, 650 164 C 736 152, 866 198, 874 304 C 882 414, 776 504, 644 510 C 534 514, 492 446, 418 450 C 330 454, 248 536, 164 494 C 92 458, 98 378, 162 310 Z" />
+              <path class="track-centerline" d="M 162 310 C 168 192, 302 92, 440 110 C 536 122, 596 172, 650 164 C 736 152, 866 198, 874 304 C 882 414, 776 504, 644 510 C 534 514, 492 446, 418 450 C 330 454, 248 536, 164 494 C 92 458, 98 378, 162 310 Z" />
+              <circle class="sector-mark" cx="266" cy="142" r="8" />
+              <circle class="sector-mark" cx="788" cy="228" r="8" />
+              <circle class="sector-mark" cx="581" cy="495" r="8" />
+              <line class="start-line" x1="151" y1="332" x2="201" y2="290" />
+              <path class="pit-lane" d="M 148 332 C 165 352, 198 371, 236 374 C 270 376, 301 366, 326 349" />
+            </svg>
             <div id="carsLayer" class="cars-layer"></div>
           </div>
         </section>

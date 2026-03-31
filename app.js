@@ -2,6 +2,8 @@ import { createRaceState, advanceRaceTick, requestPitStop, cancelPitStop, setNex
 
 let raceState = createRaceState();
 let raceTimer = null;
+let trackPath = null;
+let trackPathLength = 0;
 
 const els = {
   startRaceButton: document.getElementById('startRaceButton'),
@@ -16,26 +18,59 @@ const els = {
   resultSummary: document.getElementById('resultSummary')
 };
 
+function initTrackGeometry() {
+  trackPath = document.getElementById('raceTrackPath');
+  trackPathLength = trackPath?.getTotalLength?.() || 0;
+}
+
 function tyreClass(compound) {
   return `tyre-${compound}`;
 }
 
-function progressToPoint(progress) {
-  const centerX = 50;
-  const centerY = 50;
-  const radiusX = 36;
-  const radiusY = 30;
-  const angle = (progress * 2 * Math.PI) - Math.PI / 2;
+function clampProgress(progress) {
+  const normalized = progress % 1;
+  return normalized < 0 ? normalized + 1 : normalized;
+}
+
+function progressToTrackPoint(progress, laneOffset = 0) {
+  if (!trackPath || !trackPathLength) {
+    return { left: '50%', top: '50%', angle: 0 };
+  }
+
+  const normalized = clampProgress(progress);
+  const distance = normalized * trackPathLength;
+  const point = trackPath.getPointAtLength(distance);
+  const lookAhead = trackPath.getPointAtLength(Math.min(trackPathLength, distance + 2));
+  const lookBehind = trackPath.getPointAtLength(Math.max(0, distance - 2));
+  const dx = lookAhead.x - lookBehind.x;
+  const dy = lookAhead.y - lookBehind.y;
+  const angle = Math.atan2(dy, dx) * (180 / Math.PI);
+  const length = Math.hypot(dx, dy) || 1;
+  const normalX = -dy / length;
+  const normalY = dx / length;
+  const shiftedX = point.x + normalX * laneOffset;
+  const shiftedY = point.y + normalY * laneOffset;
+
   return {
-    left: `${centerX + Math.cos(angle) * radiusX}%`,
-    top: `${centerY + Math.sin(angle) * radiusY}%`
+    left: `${(shiftedX / 1000) * 100}%`,
+    top: `${(shiftedY / 620) * 100}%`,
+    angle
   };
 }
 
 function renderTrack() {
-  els.carsLayer.innerHTML = raceState.cars.map((car) => {
-    const point = progressToPoint(car.progress);
-    return `<div class="car-dot ${car.teamColor}" style="left:${point.left}; top:${point.top};" title="${car.driverName}"></div>`;
+  const laneOffsets = [-10, 10, -10, 10];
+  els.carsLayer.innerHTML = raceState.cars.map((car, index) => {
+    const point = progressToTrackPoint(car.progress, laneOffsets[index] || 0);
+    return `
+      <div
+        class="car-dot ${car.teamColor}"
+        style="left:${point.left}; top:${point.top}; transform: translate(-50%, -50%) rotate(${point.angle}deg);"
+        title="${car.driverName}"
+      >
+        <span class="car-body"></span>
+      </div>
+    `;
   }).join('');
 }
 
@@ -172,4 +207,5 @@ function stepRace() {
 els.startRaceButton.addEventListener('click', startRace);
 els.tickButton.addEventListener('click', stepRace);
 
+initTrackGeometry();
 render();
