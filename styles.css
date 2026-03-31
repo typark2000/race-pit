@@ -114,37 +114,23 @@ h1 { font-size: clamp(2rem, 4vw, 3rem); }
 .sector-mark {
   fill: rgba(255,255,255,.75);
 }
-.cars-layer { position: absolute; inset: 0; }
 .car-dot {
-  position: absolute;
-  width: 24px;
-  height: 14px;
-  transform-origin: center center;
+  filter: drop-shadow(0 0 8px rgba(255,255,255,.18));
 }
 .car-body {
-  display: block;
-  width: 100%;
-  height: 100%;
-  border-radius: 999px 999px 8px 8px;
-  border: 2px solid rgba(255,255,255,.82);
-  box-shadow: 0 0 18px rgba(255,255,255,.18);
+  stroke: rgba(255,255,255,.82);
+  stroke-width: 2;
 }
-.car-dot::before,
-.car-dot::after {
-  content: '';
-  position: absolute;
-  top: 3px;
-  width: 4px;
-  height: 8px;
-  border-radius: 2px;
-  background: rgba(18,18,18,.9);
+.wheel {
+  fill: rgba(18,18,18,.95);
 }
-.car-dot::before { left: -2px; }
-.car-dot::after { right: -2px; }
-.car-dot.green .car-body { background: var(--green); }
-.car-dot.orange .car-body { background: var(--orange); }
-.car-dot.red .car-body { background: var(--red); }
-.car-dot.navy .car-body { background: var(--navy); }
+.cockpit {
+  fill: rgba(12,18,32,.85);
+}
+.car-dot.green .car-body { fill: var(--green); }
+.car-dot.orange .car-body { fill: var(--orange); }
+.car-dot.red .car-body { fill: var(--red); }
+.car-dot.navy .car-body { fill: var(--navy); }
 .order-board, .strategy-grid { display: grid; gap: 12px; margin-top: 16px; }
 .order-row, .strategy-card {
   border: 1px solid var(--line);

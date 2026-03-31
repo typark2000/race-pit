@@ -34,42 +34,47 @@ function clampProgress(progress) {
 
 function progressToTrackPoint(progress, laneOffset = 0) {
   if (!trackPath || !trackPathLength) {
-    return { left: '50%', top: '50%', angle: 0 };
+    return { x: 500, y: 310, angle: 0 };
   }
 
   const normalized = clampProgress(progress);
   const distance = normalized * trackPathLength;
   const point = trackPath.getPointAtLength(distance);
-  const lookAhead = trackPath.getPointAtLength(Math.min(trackPathLength, distance + 2));
-  const lookBehind = trackPath.getPointAtLength(Math.max(0, distance - 2));
+  const lookAhead = trackPath.getPointAtLength(Math.min(trackPathLength, distance + 3));
+  const lookBehind = trackPath.getPointAtLength(Math.max(0, distance - 3));
   const dx = lookAhead.x - lookBehind.x;
   const dy = lookAhead.y - lookBehind.y;
   const angle = Math.atan2(dy, dx) * (180 / Math.PI);
   const length = Math.hypot(dx, dy) || 1;
   const normalX = -dy / length;
   const normalY = dx / length;
-  const shiftedX = point.x + normalX * laneOffset;
-  const shiftedY = point.y + normalY * laneOffset;
 
   return {
-    left: `${(shiftedX / 1000) * 100}%`,
-    top: `${(shiftedY / 620) * 100}%`,
+    x: point.x + normalX * laneOffset,
+    y: point.y + normalY * laneOffset,
     angle
   };
 }
 
 function renderTrack() {
-  const laneOffsets = [-10, 10, -10, 10];
-  els.carsLayer.innerHTML = raceState.cars.map((car, index) => {
-    const point = progressToTrackPoint(car.progress, laneOffsets[index] || 0);
+  const laneOffsetsByCar = {
+    'green-a': -6,
+    'orange-a': 6,
+    'green-b': -6,
+    'orange-b': 6
+  };
+
+  els.carsLayer.innerHTML = raceState.cars.map((car) => {
+    const point = progressToTrackPoint(car.progress, laneOffsetsByCar[car.id] ?? 0);
     return `
-      <div
-        class="car-dot ${car.teamColor}"
-        style="left:${point.left}; top:${point.top}; transform: translate(-50%, -50%) rotate(${point.angle}deg);"
-        title="${car.driverName}"
-      >
-        <span class="car-body"></span>
-      </div>
+      <g class="car-dot ${car.teamColor}" transform="translate(${point.x} ${point.y}) rotate(${point.angle})">
+        <rect class="car-body" x="-12" y="-7" width="24" height="14" rx="7" ry="7"></rect>
+        <rect class="wheel wheel-front-left" x="-11" y="-8.5" width="4" height="4"></rect>
+        <rect class="wheel wheel-front-right" x="7" y="-8.5" width="4" height="4"></rect>
+        <rect class="wheel wheel-rear-left" x="-11" y="4.5" width="4" height="4"></rect>
+        <rect class="wheel wheel-rear-right" x="7" y="4.5" width="4" height="4"></rect>
+        <rect class="cockpit" x="-3" y="-4" width="8" height="8" rx="3"></rect>
+      </g>
     `;
   }).join('');
 }

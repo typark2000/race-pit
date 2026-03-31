@@ -31,7 +31,7 @@
             </div>
           </div>
           <div class="track-stage">
-            <svg class="track-svg" viewBox="0 0 1000 620" preserveAspectRatio="xMidYMid meet" aria-hidden="true">
+            <svg id="trackSvg" class="track-svg" viewBox="0 0 1000 620" preserveAspectRatio="xMidYMid meet" aria-hidden="true">
               <defs>
                 <linearGradient id="trackGlow" x1="0%" x2="100%" y1="0%" y2="100%">
                   <stop offset="0%" stop-color="#60a5fa" stop-opacity="0.7" />
@@ -47,8 +47,8 @@
               <circle class="sector-mark" cx="581" cy="495" r="8" />
               <line class="start-line" x1="151" y1="332" x2="201" y2="290" />
               <path class="pit-lane" d="M 148 332 C 165 352, 198 371, 236 374 C 270 376, 301 366, 326 349" />
+              <g id="carsLayer"></g>
             </svg>
-            <div id="carsLayer" class="cars-layer"></div>
           </div>
         </section>
 
