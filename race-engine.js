@@ -19,7 +19,8 @@ export const TRACK_ALPHA = {
   laps: 8,
   lengthScale: 1,
   pitLossMs: 13500,
-  pitServiceFraction: 0.58,
+  pitServiceFraction: 0.56,
+  pitStopHoldFraction: 0.18,
   overtakeZones: [0.12, 0.48, 0.76],
   pitWindows: [0.86, 1.0],
   pitExitAt: 0.08
@@ -214,12 +215,26 @@ function getPitTargetProgress(car, track) {
   return track.pitExitAt <= car.progress ? track.pitExitAt + 1 : track.pitExitAt;
 }
 
+function getHeldPitFraction(fraction, holdFraction) {
+  const holdStart = 0.42;
+  const holdEnd = Math.min(0.42 + holdFraction, 0.78);
+  if (fraction <= holdStart) {
+    return fraction * (0.52 / holdStart);
+  }
+  if (fraction < holdEnd) {
+    return 0.52;
+  }
+  const remainingFraction = (fraction - holdEnd) / (1 - holdEnd || 1);
+  return 0.52 + remainingFraction * 0.48;
+}
+
 function interpolatePitProgress(car, track, fraction) {
   const startProgress = car.pitStartProgress ?? car.progress;
   const startLap = car.pitStartLap ?? car.lap;
   const target = getPitTargetProgress(car, track);
+  const heldFraction = getHeldPitFraction(fraction, track.pitStopHoldFraction);
   const span = target - startProgress;
-  const combined = startProgress + (span * fraction);
+  const combined = startProgress + (span * heldFraction);
   const lapOffset = Math.floor(combined);
   return {
     progress: combined % 1,
@@ -239,6 +254,11 @@ export function applyPitLogic(state) {
       const interpolated = interpolatePitProgress(car, state.track, visualFraction);
       const shouldChangeTyres = !car.pitTyreChanged && nextElapsed >= (car.pitTotalMs * state.track.pitServiceFraction);
 
+      let latestStrategyNote = nextRemaining > 0 ? 'Running through pit lane' : `Rejoined on ${car.nextTyreCompound}`;
+      if (visualFraction >= 0.42 && visualFraction <= 0.42 + state.track.pitStopHoldFraction) {
+        latestStrategyNote = 'Stopped in pit box';
+      }
+
       let nextCar = {
         ...car,
         pitElapsedMs: nextElapsed,
@@ -246,7 +266,7 @@ export function applyPitLogic(state) {
         pitVisualProgress: visualFraction,
         progress: interpolated.progress,
         lap: interpolated.lap,
-        latestStrategyNote: nextRemaining > 0 ? 'Running through pit lane' : `Rejoined on ${car.nextTyreCompound}`
+        latestStrategyNote
       };
 
       if (shouldChangeTyres) {

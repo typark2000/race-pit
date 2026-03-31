@@ -68,6 +68,21 @@ test('pit command flow separates next tyre and pit request', () => {
   assert.equal(state.cars.find((car) => car.id === 'green-a').pitIntent, false);
 });
 
+test('pit lane includes visible hold in the pit box', () => {
+  let state = requestPitStop(createRaceState(), 'green-a');
+  state.cars[0].progress = 0.9;
+  const entered = applyPitLogic(state);
+  const holdingState = {
+    ...entered,
+    cars: entered.cars.map((car, i) => i === 0
+      ? { ...car, pitElapsedMs: car.pitTotalMs * 0.45, pitRemainingMs: car.pitTotalMs * 0.55 }
+      : car)
+  };
+  const held = applyPitLogic(holdingState);
+  assert.equal(held.cars[0].pitState, 'pitlane');
+  assert.equal(held.cars[0].latestStrategyNote === 'Stopped in pit box' || held.cars[0].latestStrategyNote.startsWith('Tyres fitted'), true);
+});
+
 test('applyPitLogic sends car through pit lane and prevents teleport return', () => {
   let state = requestPitStop(createRaceState(), 'green-a');
   state.cars[0].progress = 0.9;

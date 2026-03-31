@@ -157,3 +157,15 @@ h1 { font-size: clamp(2rem, 4vw, 3rem); }
 @media (max-width: 860px) {
   .race-layout { grid-template-columns: 1fr; }
 }
+
+.pit-box {
+  fill: rgba(255,255,255,.14);
+  stroke: rgba(255,255,255,.5);
+  stroke-width: 4;
+}
+
+.pit-exit-mark {
+  fill: rgba(34,211,238,.2);
+  stroke: rgba(34,211,238,.8);
+  stroke-width: 3;
+}
