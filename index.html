@@ -1,0 +1,69 @@
+<!DOCTYPE html>
+<html lang="ko">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>race-pit</title>
+    <link rel="stylesheet" href="styles.css" />
+  </head>
+  <body>
+    <main class="app-shell">
+      <section class="hero card">
+        <p class="eyebrow">RACE PIT</p>
+        <h1>탑뷰 레이스 전략 프로토타입</h1>
+        <p class="lead">직접 운전은 안 해. 대신 피트와 타이어로 이긴다.</p>
+        <div class="hero-actions">
+          <button id="startRaceButton" class="primary-button" type="button">레이스 시작</button>
+          <button id="tickButton" class="secondary-button" type="button">1틱 진행</button>
+        </div>
+      </section>
+
+      <section class="race-layout">
+        <section class="track card">
+          <div class="section-head">
+            <div>
+              <p class="eyebrow">TRACK</p>
+              <h2>Coastal Ring</h2>
+            </div>
+            <div class="track-meta">
+              <span id="lapLabel" class="chip">Lap 1 / 8</span>
+              <span id="phaseLabel" class="chip">pre-race</span>
+            </div>
+          </div>
+          <div class="track-stage">
+            <div class="track-loop"></div>
+            <div id="carsLayer" class="cars-layer"></div>
+          </div>
+        </section>
+
+        <section class="order card">
+          <div class="section-head">
+            <div>
+              <p class="eyebrow">ORDER</p>
+              <h2>순위표</h2>
+            </div>
+          </div>
+          <div id="orderBoard" class="order-board"></div>
+        </section>
+      </section>
+
+      <section class="controls card">
+        <div class="section-head">
+          <div>
+            <p class="eyebrow">STRATEGY</p>
+            <h2>플레이어 차량 지시</h2>
+          </div>
+        </div>
+        <div id="strategyGrid" class="strategy-grid"></div>
+      </section>
+
+      <section class="result card" id="resultCard" hidden>
+        <p class="eyebrow">RESULT</p>
+        <h2 id="resultTitle">결과</h2>
+        <p id="resultSummary" class="lead"></p>
+      </section>
+    </main>
+
+    <script type="module" src="app.js"></script>
+  </body>
+</html>

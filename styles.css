@@ -1,0 +1,117 @@
+:root {
+  --bg: #0b1020;
+  --bg-2: #18233d;
+  --card: rgba(14, 20, 38, 0.84);
+  --text: #eef3ff;
+  --muted: #98a5c4;
+  --line: rgba(255,255,255,.08);
+  --green: #22c55e;
+  --orange: #f97316;
+  --red: #ef4444;
+  --navy: #3b82f6;
+  --accent: #8b5cf6;
+}
+* { box-sizing: border-box; }
+body {
+  margin: 0;
+  min-height: 100vh;
+  font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
+  color: var(--text);
+  background: radial-gradient(circle at top, var(--bg-2), var(--bg));
+}
+.app-shell {
+  width: min(1100px, calc(100% - 24px));
+  margin: 0 auto;
+  padding: 24px 0 48px;
+  display: grid;
+  gap: 16px;
+}
+.card {
+  background: var(--card);
+  border: 1px solid var(--line);
+  border-radius: 24px;
+  padding: 20px;
+  box-shadow: 0 18px 40px rgba(0,0,0,.2);
+}
+.eyebrow, .chip {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  min-height: 32px;
+  padding: 0 12px;
+  border-radius: 999px;
+  background: rgba(255,255,255,.06);
+  color: var(--muted);
+  font-size: 12px;
+  font-weight: 800;
+  letter-spacing: .08em;
+}
+h1,h2,p { margin: 0; }
+h1 { font-size: clamp(2rem, 4vw, 3rem); }
+.lead { margin-top: 10px; color: var(--muted); line-height: 1.6; }
+.hero-actions, .track-meta, .section-head { display: flex; gap: 10px; align-items: center; justify-content: space-between; flex-wrap: wrap; }
+.primary-button, .secondary-button, .pace-button, .pit-button, .tyre-button {
+  border: 0;
+  border-radius: 14px;
+  padding: 12px 14px;
+  color: var(--text);
+  font-weight: 800;
+  background: rgba(255,255,255,.08);
+  cursor: pointer;
+}
+.primary-button { background: linear-gradient(135deg, #8b5cf6, #6366f1); }
+.secondary-button { background: rgba(255,255,255,.1); }
+.race-layout { display: grid; grid-template-columns: 1.2fr .8fr; gap: 16px; }
+.track-stage {
+  position: relative;
+  height: 420px;
+  margin-top: 16px;
+  border-radius: 24px;
+  background: linear-gradient(180deg, rgba(255,255,255,.04), rgba(255,255,255,.02));
+  overflow: hidden;
+}
+.track-loop {
+  position: absolute;
+  inset: 36px;
+  border: 18px solid rgba(255,255,255,.08);
+  border-radius: 140px;
+}
+.track-loop::after {
+  content: '';
+  position: absolute;
+  inset: 18px;
+  border: 2px dashed rgba(255,255,255,.12);
+  border-radius: 120px;
+}
+.cars-layer { position: absolute; inset: 0; }
+.car-dot {
+  position: absolute;
+  width: 18px;
+  height: 18px;
+  border-radius: 50%;
+  border: 2px solid rgba(255,255,255,.85);
+  transform: translate(-50%, -50%);
+}
+.car-dot.green { background: var(--green); }
+.car-dot.orange { background: var(--orange); }
+.car-dot.red { background: var(--red); }
+.car-dot.navy { background: var(--navy); }
+.order-board, .strategy-grid { display: grid; gap: 12px; margin-top: 16px; }
+.order-row, .strategy-card {
+  border: 1px solid var(--line);
+  border-radius: 18px;
+  padding: 14px;
+  background: rgba(255,255,255,.04);
+}
+.order-row { display: grid; gap: 6px; }
+.order-meta, .strategy-meta, .strategy-actions, .tyre-row { display: flex; gap: 8px; flex-wrap: wrap; align-items: center; }
+.small { color: var(--muted); font-size: .92rem; }
+.tyre-badge { padding: 6px 10px; border-radius: 999px; font-size: 12px; font-weight: 800; }
+.tyre-soft { background: rgba(239,68,68,.16); color: #fca5a5; }
+.tyre-medium { background: rgba(245,158,11,.16); color: #fcd34d; }
+.tyre-hard { background: rgba(156,163,175,.16); color: #d1d5db; }
+.tyre-wet { background: rgba(59,130,246,.16); color: #93c5fd; }
+.pace-button.active, .tyre-button.active, .pit-button.active { outline: 2px solid #fff; }
+@media (max-width: 860px) {
+  .race-layout { grid-template-columns: 1fr; }
+}
