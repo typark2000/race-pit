@@ -6,14 +6,15 @@
 - [x] Write UX.md
 - [x] Write TASKS.md
 - [ ] Decide final project name
-- [ ] Decide scoring/win model
+- [x] Decide scoring/win model
 
 ## Phase 2 — prototype architecture
-- [ ] Define race state model
-- [ ] Define car/tyre/pace data model
-- [ ] Define lap simulation tick loop
-- [ ] Define pit stop timing model
-- [ ] Define overtake / gap model
+- [x] Define race state model
+- [x] Define car/tyre/pace data model
+- [x] Define lap simulation tick loop
+- [x] Define pit stop timing model
+- [x] Define overtake / gap model
+- [x] Write architecture docs
 
 ## Phase 3 — UI prototype
 - [ ] Build top-view track prototype
@@ -32,6 +33,15 @@
 - [ ] weather in MVP or after MVP?
 - [ ] one-track prototype first or track generator first?
 
+## Resolved direction
+- MVP scoring: points table
+  - 1st = 12
+  - 2nd = 8
+  - 3rd = 5
+  - 4th = 3
+- MVP prototype: one fictional track first
+- MVP race: player 2 cars vs AI 2 cars
+
 ## Recommendation
-Prototype one fictional track and one race mode first.
-Do not start with progression/meta systems.
+Next build step should be the simulation core before polished visuals.
+Do not start with meta progression or unlock systems.
