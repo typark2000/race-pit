@@ -1,0 +1,10 @@
+{
+  "name": "race-pit",
+  "private": true,
+  "type": "module",
+  "scripts": {
+    "check": "node --check race-engine.js",
+    "test": "node --test",
+    "verify": "npm run check && npm run test"
+  }
+}
